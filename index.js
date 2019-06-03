@@ -39,6 +39,7 @@ EncryptedField.prototype.vault = function(name) {
             var decipher = crypto.createDecipheriv(self._algorithm, self.key, iv);
 
             var json = decipher.update(content, undefined, 'utf8') + decipher.final('utf8');
+// call all _sanitize here? don't have config.type access.
             return JSON.parse(json);
         },
         set: function(value) {
@@ -77,12 +78,35 @@ EncryptedField.prototype.field = function(name, config) {
 
             // use `this` not self because we need to reference the sequelize instance
             // not our EncryptedField instance
+// get the json field with encrypted values, then custom get above decrypts it into object.
             var encrypted = this[encrypted_field_name];
+// set the field to unenc value. call _sanitize here since like in lib/model.js:
+/*
+          if (!(value instanceof Utils.SequelizeMethod) && this.constructor._dataTypeSanitizers.hasOwnProperty(key)) {
+console.log('---- sanitizer:',key,value)
+            value = this.constructor._dataTypeSanitizers[key].call(this, value, options);
+          }
+*/
+// need to call it here to e.g. convert string to date for DATE field
+if (config.type) {
+  let dt = new config.type
+  if (dt._sanitize) {
+    val = dt._sanitize(val)
+  }
+}
             encrypted[name] = val;
+// set the json blob to unenc, it will be enc when vault field gets set.
             this[encrypted_field_name] = encrypted;
         },
         get: function get_encrypted() {
             var encrypted = this[encrypted_field_name];
+// encrypted is from json, so it is string or number. need to convert it to e.g. Date if necessary
+if (config.type) {
+  let dt = new config.type
+  if (dt._sanitize) {
+    val = dt._sanitize(val)
+  }
+}
             var val = encrypted[name];
             return ([undefined, null].indexOf(val) === -1) ? val : config.defaultValue;
         },
